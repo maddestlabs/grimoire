@@ -1,0 +1,6 @@
+C:/git/grimoire/build/CMakeFiles/grimoire_core.dir
+C:/git/grimoire/build/CMakeFiles/grimoire.dir
+C:/git/grimoire/build/CMakeFiles/test_grimoire.dir
+C:/git/grimoire/build/CMakeFiles/RUN_TESTS.dir
+C:/git/grimoire/build/CMakeFiles/ALL_BUILD.dir
+C:/git/grimoire/build/CMakeFiles/ZERO_CHECK.dir
