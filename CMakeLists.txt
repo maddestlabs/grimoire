@@ -25,8 +25,12 @@ if(MSVC)
     # Enable multi-processor compilation
     add_compile_options(/MP /W3 /utf-8)
 elseif(EMSCRIPTEN)
-    add_compile_definitions(SOKOL_GLES3)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH=1")
+    add_compile_definitions(SOKOL_WGPU)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --use-port=emdawnwebgpu -Oz -flto -fno-exceptions -fno-rtti")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --use-port=emdawnwebgpu -Oz -flto -sASYNCIFY=0 -sDISABLE_EXCEPTION_CATCHING=1 -sASSERTIONS=0 -sMALLOC=emmalloc -sFILESYSTEM=0 -sINITIAL_MEMORY=16MB -sALLOW_MEMORY_GROWTH=1")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+    endif()
 else()
     add_compile_definitions(SOKOL_GLCORE)
 endif()
@@ -49,10 +53,14 @@ target_include_directories(grimoire_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
-# Native desktop app
+# Native desktop app / Web executable
 add_executable(grimoire
     src/main.cpp
 )
+
+if(EMSCRIPTEN)
+    set_target_properties(grimoire PROPERTIES SUFFIX ".html")
+endif()
 
 target_link_libraries(grimoire PRIVATE grimoire_core)
 

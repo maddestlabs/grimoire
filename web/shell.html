@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Grimoire - Atmospheric Pixel-Art Writing Engine (WebGPU)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: #0b0907;
+      color: #dfcfb2;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas#canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border: 0;
+      display: block;
+      outline: none;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: text;
+    }
+    #unsupported-overlay {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(18, 14, 11, 0.95);
+      border: 1px solid #7c5c2d;
+      padding: 2rem 2.5rem;
+      border-radius: 8px;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9);
+    }
+    #unsupported-overlay h2 {
+      color: #e5b367;
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+    }
+    #unsupported-overlay p {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: #c9b99e;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  </div>
+
+  <div id="unsupported-overlay">
+    <h2>WebGPU Required</h2>
+    <p>
+      Project Grimoire utilizes modern <strong>WebGPU</strong> for hardware presentation and DSP lo-fi audio.<br/><br/>
+      Please open this application in a modern WebGPU-capable browser such as <strong>Chrome 113+</strong>, <strong>Microsoft Edge 113+</strong>, or <strong>Safari 18+</strong>.
+    </p>
+  </div>
+
+  <script>
+    // WebGPU Availability Check
+    if (!navigator.gpu) {
+      document.getElementById('canvas').style.display = 'none';
+      document.getElementById('unsupported-overlay').style.display = 'block';
+    }
+
+    // Audio Context Unlock on First User Gesture
+    const unlockAudio = () => {
+      if (typeof miniaudio !== 'undefined' && miniaudio.device && miniaudio.device.context) {
+        if (miniaudio.device.context.state === 'suspended') {
+          miniaudio.device.context.resume();
+        }
+      }
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+
+    // Auto-focus canvas so typing works instantly without manual clicking
+    window.addEventListener('load', () => {
+      const c = document.getElementById('canvas');
+      if (c) c.focus();
+    });
+    window.addEventListener('click', () => {
+      const c = document.getElementById('canvas');
+      if (c && document.activeElement !== c) c.focus();
+    });
+
+    // Emscripten Module Config
+    var Module = {
+      preRun: [],
+      postRun: [],
+      print: function(text) {
+        console.log('[Grimoire WebGPU]', text);
+      },
+      printErr: function(text) {
+        console.error('[Grimoire WebGPU Error]', text);
+      },
+      canvas: (function() {
+        var canvas = document.getElementById('canvas');
+        canvas.addEventListener("webglcontextlost", function(e) {
+          alert('GPU Context Lost. Please reload.');
+          e.preventDefault();
+        }, false);
+        return canvas;
+      })(),
+      setStatus: function(text) {},
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {}
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

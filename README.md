@@ -126,7 +126,7 @@ c:\git\grimoire/
 - CMake 3.20+
 - PowerShell
 
-### Commands
+### Commands (Native Desktop)
 ```powershell
 # 1. Compile and execute automated test suite
 .\build.ps1 -Test
@@ -136,6 +136,15 @@ c:\git\grimoire/
 
 # 3. Clean rebuild and launch
 .\build.ps1 -Clean -Run
+```
+
+### Commands (WebGPU / WebAssembly)
+```powershell
+# 1. Compile WebAssembly bundle with WebGPU backend
+.\build-web.ps1
+
+# 2. Build and launch local web server
+.\build-web.ps1 -Serve
 ```
 
 ---

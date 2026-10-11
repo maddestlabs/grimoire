@@ -17,6 +17,10 @@
 #include <algorithm>
 #include <memory>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 using namespace grimoire::core;
 using namespace grimoire::audio;
 using namespace grimoire::editor;
@@ -142,7 +146,53 @@ static void init(void) {
     vbuf_desc.label = "fullscreen_quad_vbuf";
     g_app.vbuf = sg_make_buffer(&vbuf_desc);
 
-    // 5. Blit Presentation Shader (Direct3D 11 / HLSL)
+    // 5. Blit Presentation Shader (Direct3D 11 HLSL or WebGPU WGSL)
+#if defined(SOKOL_WGPU)
+    const char* vs_wgsl =
+        "struct VertexInput {\n"
+        "  @location(0) pos : vec2<f32>,\n"
+        "  @location(1) uv  : vec2<f32>,\n"
+        "};\n"
+        "struct VertexOutput {\n"
+        "  @builtin(position) pos : vec4<f32>,\n"
+        "  @location(0) uv        : vec2<f32>,\n"
+        "};\n"
+        "@vertex\n"
+        "fn vs_main(in : VertexInput) -> VertexOutput {\n"
+        "  var out : VertexOutput;\n"
+        "  out.pos = vec4<f32>(in.pos, 0.0, 1.0);\n"
+        "  out.uv = in.uv;\n"
+        "  return out;\n"
+        "}\n";
+
+    const char* fs_wgsl =
+        "@group(1) @binding(0) var canvas_tex : texture_2d<f32>;\n"
+        "@group(1) @binding(1) var canvas_smp : sampler;\n"
+        "@fragment\n"
+        "fn fs_main(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {\n"
+        "  return textureSample(canvas_tex, canvas_smp, uv);\n"
+        "}\n";
+
+    sg_shader_desc shd_desc = {};
+    shd_desc.vertex_func.source = vs_wgsl;
+    shd_desc.vertex_func.entry = "vs_main";
+    shd_desc.fragment_func.source = fs_wgsl;
+    shd_desc.fragment_func.entry = "fs_main";
+
+    shd_desc.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT;
+    shd_desc.views[0].texture.image_type = SG_IMAGETYPE_2D;
+    shd_desc.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+    shd_desc.views[0].texture.wgsl_group1_binding_n = 0;
+
+    shd_desc.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT;
+    shd_desc.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
+    shd_desc.samplers[0].wgsl_group1_binding_n = 1;
+
+    shd_desc.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT;
+    shd_desc.texture_sampler_pairs[0].view_slot = 0;
+    shd_desc.texture_sampler_pairs[0].sampler_slot = 0;
+    shd_desc.label = "presentation_shader_wgpu";
+#elif defined(SOKOL_D3D11)
     const char* vs_src =
         "struct vs_in {\n"
         "  float2 pos : POS;\n"
@@ -188,6 +238,9 @@ static void init(void) {
     shd_desc.texture_sampler_pairs[0].sampler_slot = 0;
     shd_desc.texture_sampler_pairs[0].glsl_name = "tex";
     shd_desc.label = "presentation_shader";
+#else
+    #error "Unsupported Sokol graphics backend"
+#endif
     sg_shader shd = sg_make_shader(&shd_desc);
 
     sg_pipeline_desc pip_desc = {};
@@ -288,6 +341,20 @@ static void event(const sapp_event* ev) {
                 // Ctrl+S: Export to manuscript.md
                 std::string md = g_app.story->exportToMarkdown(g_app.editor->getText());
                 std::cout << "[Grimoire] Saved manuscript to Markdown (" << g_app.editor->getWordCount() << " words).\n";
+#if defined(__EMSCRIPTEN__)
+                EM_ASM({
+                    var text = UTF8ToString($0);
+                    var blob = new Blob([text], {type: 'text/markdown;charset=utf-8'});
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'manuscript.md';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, md.c_str());
+#endif
                 g_app.audio->playKeyClick(KeySoundType::ReturnKey);
                 break;
             }
@@ -346,5 +413,9 @@ sapp_desc sokol_main(int /*argc*/, char* /*argv*/[]) {
     desc.window_title = "Grimoire - Atmospheric Pixel-Art Writing Engine";
     desc.icon.sokol_default = true;
     desc.logger.func = slog_func;
+#if defined(__EMSCRIPTEN__)
+    desc.high_dpi = true;
+    desc.html5.canvas_resize = false; // dynamically track and fill CSS canvas dimensions
+#endif
     return desc;
 }
